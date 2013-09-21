@@ -289,7 +289,7 @@ static inline myint_t inductive_exclusion_2(board_t *this, myint_t bx, myint_t b
                     continue;
                 if(!(this->per_unit[ky][kx] & mask))
                     continue;
-                debug("inductive_exclusion_2 found match: [%d,%d] and [%d,%d] both have mask %#x, updating [%d,%d] with mask %#x", ix, iy, jx, jy, mask, kx, ky, this->per_unit[ky][kx]);
+                printf("Found pair [%d,%d] and [%d,%d] with equal sets of 2; eliminating those from [%d,%d].\n", ix, iy, jx, jy, kx, ky);
                 mask_box(this, ~mask, kx, ky);
                 rv++;
             }
@@ -332,7 +332,7 @@ static inline myint_t inductive_exclusion_3(board_t *this, myint_t bx, myint_t b
                         continue;
                     if(!(this->per_unit[ly][lx] & mask))
                         continue;
-                    debug("inductive_exclusion_3 found match: [%d,%d], [%d,%d] and [%d,%d] all have mask %#x, updating [%d,%d] with mask %#x", ix, iy, jx, jy, kx, ky, mask, lx, ly, this->per_unit[ly][lx]);
+                    printf("Found triple [%d,%d], [%d,%d] and [%d,%d] with equal sets of 3; eliminating those from [%d,%d].\n", ix, iy, jx, jy, kx, ky, lx, ly);
                     mask_box(this, ~mask, lx, ly);
                     rv++;
                 }

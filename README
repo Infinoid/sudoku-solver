@@ -1,0 +1,81 @@
+WHAT IS?
+
+This is a sudoku solver.  I implemented it in an attempt to break my
+sudoku addiction, by proving to myself that human brains are far less
+efficient at solving such things than computers are.
+
+It worked... for a while.
+
+
+HOW CAN?
+
+Try typing "make".  If it produces a program called "sudoku-solver",
+you're good.  If it gives you an error message, fix it.
+
+If/when you get it compiled, feed it a sudoku game on the command line.
+The game should be in simple text file form, see easy1.txt for an example.
+It will try to solve it, making some comments about what it is doing along
+the way.  Once it finds a solution, or gives up, it will show you what it
+came up with.
+
+
+HOW DOES?
+
+The program keeps track of which cells it knows for sure, and which
+possibilities there are for the cells it doesn't know for sure.  It
+knows a few strategies for how to solve boards, and basically just keeps
+repeating them until it finds an answer, or gives up.
+
+Strategies:
+
+* Direct elimination.
+
+"mark_pending: handled 4 pending completions."
+
+Every time it figures out an answer, it looks for other cells which had
+that possibility, in the same row, column, and block, and eliminates all
+of the others.  If only one possibility remains for an cell, then we have
+discovered the answer for that cell, too, and the marking process repeats.
+
+* Last one standing
+
+"Only one 7 in column 8."
+"Only one 9 in row 5."
+"Only one 5 in box at (0,0)."
+
+For a given value, if only one cell could possibly contain that value,
+then that cell must contain that value.  This is true for a row of cells,
+a column of cells, or a block of cells.
+
+* Box items form a line
+
+"The 6's in box at (3,3) form a horizontal line, which rules out (0,3)."
+"The 3's in box at (6,3) form a vertical line, which rules out (7,1)."
+
+For a given value, if all of the possibilities in a box are within a
+single row or a single column, then that box must contain the value for
+that row or column.  This means we can eliminate the possibilities for
+that value in other boxes, within the row or column.
+
+* Line items are in a box
+
+"The 3's in column (8,*) are in a box, which rules out (7,8)."
+"The 6's in line (*,0) are in a box, which rules out (7,1)."
+
+For a given value, if all of the possibilities in a row or column
+are within a single box, then the value must be in that row or column
+of the box.  This means we can eliminate the possibilities for that value
+elsewhere in the box.
+
+* Inductive exclusion
+
+"Found triple [6,6], [7,6] and [6,7] with equal sets of 3; eliminating those from [8,7]."
+
+If two cells in the same row, column, or box have the same set of
+possibilities, and there are only two values in that set of possibilities,
+then those two cells must contain both of the values.  That means cells
+in the same row, column or box as those two cannot contain either of the
+values in that set.  The same is true for 3 equal sets of 3 possibilities,
+4 equal sets of 4 possibilities, etc.  That said, I have not fully
+generalized it yet; the program currently only searches for doubles and
+triples.
