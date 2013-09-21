@@ -206,6 +206,58 @@ static inline myint_t box_items_form_a_line(board_t *this) {
     return rv;
 }
 
+static inline myint_t line_items_are_in_a_box(board_t *this) {
+    myint_t i, j, k, l, bx, by, flag, rv = 0;
+    for(l = 0; l < NUM_TOKENS; l++) {
+        flag = 1<<l;
+        for(i = 0; i < NUM_TOKENS; i++) {
+            int row_count = 0, col_count = 0;
+            for(j = 0; j < NUM_TOKENS; j++) {
+                if(this->per_unit[i][j] & flag)
+                    row_count++;
+                if(this->per_unit[j][i] & flag)
+                    col_count++;
+            }
+            for(k = 0; k < NUM_TOKENS; k += BOX_SIDE_LEN) {
+                int box_row_count = 0, box_col_count = 0;
+                for(j = 0; j < BOX_SIDE_LEN; j++) {
+                    if(this->per_unit[i][j+k] & flag)
+                        box_row_count++;
+                    if(this->per_unit[j+k][i] & flag)
+                        box_col_count++;
+                }
+                if(row_count == box_row_count) {
+                    for(by = i - (i % BOX_SIDE_LEN); by < i - (i % BOX_SIDE_LEN) + BOX_SIDE_LEN; by++) {
+                        if(by == i)
+                            continue;
+                        for(bx = k; bx < k + BOX_SIDE_LEN; bx++) {
+                            if(this->per_unit[by][bx] & flag) {
+                                printf("The %d's in line (%d,*) are in a box, which rules out (%d,%d).\n", l+1, i, bx, by);
+                                rv++;
+                                mask_box(this, ~flag, bx, by);
+                            }
+                        }
+                    }
+                }
+                if(col_count == box_col_count) {
+                    for(bx = i - (i % BOX_SIDE_LEN); bx < i - (i % BOX_SIDE_LEN) + BOX_SIDE_LEN; bx++) {
+                        if(bx == i)
+                            continue;
+                        for(by = k; by < k + BOX_SIDE_LEN; by++) {
+                            if(this->per_unit[by][bx] & flag) {
+                                printf("The %d's in column (*,%d) are in a box, which rules out (%d,%d).\n", l+1, i, bx, by);
+                                rv++;
+                                mask_box(this, ~flag, bx, by);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return rv;
+}
+
 static inline myint_t inductive_exclusion_2(board_t *this, myint_t bx, myint_t by, myint_t sx, myint_t sy) {
     /* Given a subset of the space where exclusion is enforced, find
      * matched tuples of possibilities for which inductive closure excludes
@@ -223,7 +275,7 @@ static inline myint_t inductive_exclusion_2(board_t *this, myint_t bx, myint_t b
         if(CPOP(mask) != 2)
             continue;
         for(j = i + 1; j < NUM_TOKENS; j++) {
-            myint_t k, jx, jy, b1, b2;
+            myint_t k, jx, jy;
             jx = j % sx + bx;
             jy = j / sx + by;
             if(this->per_unit[jy][jx] != mask)
@@ -267,7 +319,7 @@ static inline myint_t inductive_exclusion_3(board_t *this, myint_t bx, myint_t b
             if(this->per_unit[jy][jx] != mask)
                 continue;
             for(k = j + 1; k < NUM_TOKENS; k++) {
-                myint_t l, kx, ky, b1, b2, b3;
+                myint_t l, kx, ky;
                 kx = k % sx + bx;
                 ky = k / sx + by;
                 if(this->per_unit[ky][kx] != mask)
@@ -324,6 +376,8 @@ int chew(board_t *this) {
         return rv;
     /* items in box form a line */
     rv += box_items_form_a_line(this);
+    /* items in line are within a box */
+    rv += line_items_are_in_a_box(this);
     /* inductive exclusion */
     rv += inductive_exclusion(this);
 
