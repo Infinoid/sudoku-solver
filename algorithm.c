@@ -396,6 +396,8 @@ int chew(board_t *this) {
     rv += box_items_form_a_line(this);
     /* items in line are within a box */
     rv += line_items_are_in_a_box(this);
+    if(rv)
+        return rv;
     /* inductive exclusion */
     rv += inductive_exclusion(this);
 
