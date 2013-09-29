@@ -37,7 +37,7 @@ typedef struct {
     myint_t remaining;
 } board_t;
 
-#define debug(a, b...) do { fprintf(stderr, "%s:%d: " a "\n", __FILE__, __LINE__, ##b); fflush(stderr); } while(0)
+#define debug(a, b...) do { printf("%s:%d: " a "\n", __FILE__, __LINE__, ##b); fflush(stderr); } while(0)
 #define die(a, b...) do { debug("FATAL: " a, ##b); exit(1); } while(0)
 
 #endif /* BASICS_H_ */

@@ -69,13 +69,16 @@ elsewhere in the box.
 
 * Inductive exclusion
 
-"Found triple [6,6], [7,6] and [6,7] with equal sets of 3; eliminating those from [8,7]."
+"Set [6,6], [7,6], [6,7] of size 3 with 3 possibilities excludes [8,7]."
+"Set [8,6], [8,7], [6,8], [7,8] of size 4 with 4 possibilities excludes [6,6]."
 
 If two cells in the same row, column, or box have the same set of
 possibilities, and there are only two values in that set of possibilities,
 then those two cells must contain both of the values.  That means cells
 in the same row, column or box as those two cannot contain either of the
-values in that set.  The same is true for 3 equal sets of 3 possibilities,
-4 equal sets of 4 possibilities, etc.  That said, I have not fully
-generalized it yet; the program currently only searches for doubles and
-triples.
+values in that set.
+
+More generally, a set of N cells with only N possibilities among them
+must contain all N of those possibilities, so none of those
+possibilities can exist elsewhere in the row, column, or box that
+contains them.

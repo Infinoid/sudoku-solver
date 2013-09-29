@@ -258,105 +258,123 @@ static inline myint_t line_items_are_in_a_box(board_t *this) {
     return rv;
 }
 
-static inline myint_t inductive_exclusion_2(board_t *this, myint_t bx, myint_t by, myint_t sx, myint_t sy) {
+static inline myint_t inductive_exclusion_n(board_t *this, myint_t bx, myint_t by, myint_t sx, myint_t sy, myint_t N) {
     /* Given a subset of the space where exclusion is enforced, find
      * matched tuples of possibilities for which inductive closure excludes
      * those possibilities from existing anywhere else in the set.
      *
-     * In other words, if two cells of a box both have 2 and 6 as options,
-     * and they can't be anything else, then some third box which has 2,
-     * 6 and 9 as options can't be a 2 or 6 after all. */
-    myint_t i, rv = 0;
-    for(i = 0; i < NUM_TOKENS - 1; i++) {
-        myint_t j, ix, iy, mask;
-        ix = i % sx + bx;
-        iy = i / sx + by;
-        mask = this->per_unit[iy][ix];
-        if(CPOP(mask) != 2)
-            continue;
-        for(j = i + 1; j < NUM_TOKENS; j++) {
-            myint_t k, jx, jy;
-            jx = j % sx + bx;
-            jy = j / sx + by;
-            if(this->per_unit[jy][jx] != mask)
-                continue;
-
-            for(k = 0; k < NUM_TOKENS; k++) {
-                myint_t kx, ky;
-                kx = k % sx + bx;
-                ky = k / sx + by;
-                if(k == i || k == j)
-                    continue;
-                if(!(this->per_unit[ky][kx] & mask))
-                    continue;
-                printf("Found pair [%d,%d] and [%d,%d] with equal sets of 2; eliminating those from [%d,%d].\n", ix, iy, jx, jy, kx, ky);
-                mask_box(this, ~mask, kx, ky);
-                rv++;
-            }
-        }
-    }
-    return rv;
-}
-
-static inline myint_t inductive_exclusion_3(board_t *this, myint_t bx, myint_t by, myint_t sx, myint_t sy) {
-    /* Same thing as above, but looking for 3 sets of 3 possibilities.
+     * In other words, if N is 2, and two cells of the box both have 2 and
+     * 6 as options, and they can't be anything else, then some third box
+     * which has 2, 6 and 9 as options can't be a 2 or 6 after all.
      *
-     * In other words, if three cells of a box all have 2, 6 and 8 as options,
-     * and they can't be anything else, then some fourth box which has 2,
-     * 6, 8 and 9 as options can't be a 2 or 6 or 8 after all. */
-    myint_t i, rv = 0;
-    for(i = 0; i < NUM_TOKENS - 2; i++) {
-        myint_t j, ix, iy, mask;
-        ix = i % sx + bx;
-        iy = i / sx + by;
-        mask = this->per_unit[iy][ix];
-        if(CPOP(mask) != 3)
-            continue;
-        for(j = i + 1; j < NUM_TOKENS-1; j++) {
-            myint_t k, jx, jy;
-            jx = j % sx + bx;
-            jy = j / sx + by;
-            if(this->per_unit[jy][jx] != mask)
-                continue;
-            for(k = j + 1; k < NUM_TOKENS; k++) {
-                myint_t l, kx, ky;
-                kx = k % sx + bx;
-                ky = k / sx + by;
-                if(this->per_unit[ky][kx] != mask)
-                    continue;
-                for(l = 0; l < NUM_TOKENS; l++) {
-                    myint_t lx, ly;
-                    lx = l % sx + bx;
-                    ly = l / sx + by;
-                    if(l == i || l == j || l == k)
+     * In a more interesting example, if N is 3, and three cells of the
+     * box have possibilities [2,6], [6,9], and [2,9], then the
+     * possibilities 2, 6, and 9 must be in those cells, and can't be
+     * elsewhere in the box. */
+
+    /* "elements" is a scalar value for the number of elements under
+     * consideration.  We only consider the elements whose values are not
+     * yet known.  0 <= elements <= NUM_TOKENS.
+     *
+     * idx[N] is the current permutation.  There are N indices in the
+     * permutation, each index is in the range of 0 to elements-1, are
+     * unique within this list, and are in strictly ascending order.  If
+     * N is 3, the search space starts at [0,1,2] and terminates at
+     * [NUM-3,NUM-2,NUM-1].
+     *
+     * X[NUM_TOKENS] and Y[NUM_TOKENS] map the values in idx[] to positions
+     * in the board matrix.  They are declared with NUM_TOKENS entries, but
+     * only indices 0 through elements-1 are populated.
+     */
+    myint_t elements = 0, idx[N], X[NUM_TOKENS], Y[NUM_TOKENS], i, rv = 0;
+
+    /* Set up initial set of indices */
+    for(i = 0; i < N; i++)
+        idx[i] = i;
+
+    /* Set up coordinate tables */
+    for(i = 0; i < NUM_TOKENS - 1; i++) {
+        /* Calculate the coordinates for every element */
+        X[elements] = i % sx + bx;
+        Y[elements] = i / sx + by;
+        /* ...but only hold onto the unresolved elements */
+        if(CPOP(this->per_unit[Y[elements]][X[elements]]) > 1)
+            elements++;
+    }
+    /* There must be at least N entries in the unresolved set to achieve
+     * inductive closure, and there must be at least N+1 entries for there
+     * to be anything else to exclude based on that.  If we don't have that
+     * many elements, don't bother trying. */
+    if(elements < N+1)
+        return rv;
+
+    /* Consider all the permutations. */
+    while(idx[0] <= elements - N) {
+        myint_t mask = 0;
+
+        /* find the union of all possibilities across the current
+         * permutation. */
+        for(i = 0; i < N; i++)
+            mask |= this->per_unit[Y[idx[i]]][X[idx[i]]];
+
+        if(CPOP(mask) == N) {
+            /* the union has N bits set, look for things it can exclude */
+            myint_t ix, iy;
+            for(iy = by; iy < sy + by; iy++) {
+                for(ix = bx; ix < sx + bx; ix++) {
+                    myint_t skip = 0;
+                    for(i = 0; i < N; i++) {
+                        if(X[idx[i]] == ix && Y[idx[i]] == iy) {
+                            /* don't consider elements in the current
+                             * permutation */
+                            skip = 1;
+                            break;
+                        }
+                    }
+                    if(skip)
                         continue;
-                    if(!(this->per_unit[ly][lx] & mask))
+                    if(!(this->per_unit[iy][ix] & mask))
                         continue;
-                    printf("Found triple [%d,%d], [%d,%d] and [%d,%d] with equal sets of 3; eliminating those from [%d,%d].\n", ix, iy, jx, jy, kx, ky, lx, ly);
-                    mask_box(this, ~mask, lx, ly);
+
+                    /* found one! */
+                    printf("Set ");
+                    for(i = 0; i < N; i++)
+                        printf("%s[%d,%d]", i ? ", " : "", X[idx[i]], Y[idx[i]]);
+                    printf(" of size %d with %d possibilities excludes [%d,%d].\n", N, N, ix, iy);
+                    mask_box(this, ~mask, ix, iy);
                     rv++;
                 }
             }
         }
+
+        /* Find the next permutation. */
+        for(i = N-1; i >= 0; i--) {
+            if(idx[i] < (elements-(N-i))) {
+                myint_t j;
+                idx[i]++;
+                for(j = i + 1; j < N; j++) {
+                    idx[j] = idx[j-1] + 1;
+                }
+                break;
+            } else if(!i)
+                idx[0] = elements; /* done */
+        }
     }
+
     return rv;
 }
 
 static inline myint_t inductive_exclusion(board_t *this) {
-    myint_t i, j, rv = 0;
-    for(i = 0; i < NUM_TOKENS; i += BOX_SIDE_LEN) for(j = 0; j < NUM_TOKENS; j += BOX_SIDE_LEN)
-        rv += inductive_exclusion_2(this, i, j, BOX_SIDE_LEN, BOX_SIDE_LEN);
-    for(i = 0; i < NUM_TOKENS; i++) {
-        rv += inductive_exclusion_2(this, i, 0, 1, NUM_TOKENS);
-        rv += inductive_exclusion_2(this, 0, i, NUM_TOKENS, 1);
-    }
-    if(rv)
-        return rv;
-    for(i = 0; i < NUM_TOKENS; i += BOX_SIDE_LEN) for(j = 0; j < NUM_TOKENS; j += BOX_SIDE_LEN) 
-        rv += inductive_exclusion_3(this, i, j, BOX_SIDE_LEN, BOX_SIDE_LEN);
-    for(i = 0; i < NUM_TOKENS; i++) {
-        rv += inductive_exclusion_3(this, i, 0, 1, NUM_TOKENS);
-        rv += inductive_exclusion_3(this, 0, i, NUM_TOKENS, 1);
+    myint_t i, j, n, rv = 0;
+    for(n = 2; n < NUM_TOKENS-1; n++) {
+        for(i = 0; i < NUM_TOKENS; i += BOX_SIDE_LEN) for(j = 0; j < NUM_TOKENS; j += BOX_SIDE_LEN)
+            rv += inductive_exclusion_n(this, i, j, BOX_SIDE_LEN, BOX_SIDE_LEN, n);
+        for(i = 0; i < NUM_TOKENS; i++) {
+            rv += inductive_exclusion_n(this, i, 0, 1, NUM_TOKENS, n);
+            rv += inductive_exclusion_n(this, 0, i, NUM_TOKENS, 1, n);
+        }
+        if(rv)
+            return rv;
     }
     return rv;
 }
